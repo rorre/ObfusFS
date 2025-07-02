@@ -40,6 +40,9 @@ Obfus-FS: A FUSE that obfuscates the location of all files inside a directory
     )
     server.parse(values=server, errex=1)
 
+    if server.data[0] != "/":
+        server.data = os.path.abspath(server.data)
+
     try:
         if server.fuse_args.mount_expected():
             os.chdir(server.data)
