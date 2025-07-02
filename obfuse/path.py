@@ -9,7 +9,7 @@ from Crypto.Util.Padding import pad
 import random
 import string
 
-MAGIC = "OBFUSFS".encode()
+MAGIC = "OBFUSEFS".encode()
 PathLike = os.PathLike[str] | str
 
 
