@@ -42,12 +42,12 @@ Obfus-FS: A FUSE that obfuscates the location of all files inside a directory
 
     try:
         if server.fuse_args.mount_expected():
-            os.chdir(server.parser.values.root)
+            os.chdir(server.parser.values.data)
     except OSError:
         print("can't enter root of underlying filesystem", file=sys.stderr)
         sys.exit(1)
 
-    server.root = server.parser.values.root
+    server.root = server.parser.values.data
     server.path_manager = PathManager(
         server.root + "/obfusfs.db",
         server.parser.values.password,
