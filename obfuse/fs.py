@@ -29,7 +29,7 @@ class DirectoryStat(fuse.Stat):
         self.st_ctime = directory.ctime
 
 
-class ObfusFS(Fuse):
+class ObfuseFS(Fuse):
     path_manager: PathManager
 
     def __init__(self, *args, **kw):

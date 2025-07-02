@@ -12,7 +12,7 @@ from __future__ import print_function
 import os, sys
 from fuse import Fuse
 
-from obfuse.fs import ObfusFS
+from obfuse.fs import ObfuseFS
 from obfuse.path import PathManager
 
 
@@ -26,7 +26,7 @@ ObFUSE: A filesystem that obfuscates the location of all files inside a director
         + Fuse.fusage
     )
 
-    server = ObfusFS(usage=usage)
+    server = ObfuseFS(usage=usage)
 
     server.parser.add_option(
         mountopt="data",
