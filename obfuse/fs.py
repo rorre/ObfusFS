@@ -4,7 +4,7 @@ import stat
 import fuse
 from fuse import Fuse
 
-from obfusfs.path import Directory, File, PathManager
+from obfuse.path import Directory, File, PathManager
 
 
 if not hasattr(fuse, "__version__"):

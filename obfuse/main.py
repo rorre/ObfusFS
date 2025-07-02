@@ -12,15 +12,15 @@ from __future__ import print_function
 import os, sys
 from fuse import Fuse
 
-from obfusfs.fs import ObfusFS
-from obfusfs.path import PathManager
+from obfuse.fs import ObfusFS
+from obfuse.path import PathManager
 
 
 def main():
 
     usage = (
         """
-Obfus-FS: A FUSE that obfuscates the location of all files inside a directory
+ObFUSE: A filesystem that obfuscates the location of all files inside a directory
 
 """
         + Fuse.fusage

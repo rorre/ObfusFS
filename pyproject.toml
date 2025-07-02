@@ -1,7 +1,7 @@
 [project]
-name = "obfusfs"
+name = "obfuse"
 version = "0.1.0"
-description = "Add your description here"
+description = "A filesystem that obfuscates the location of all files inside a directory"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

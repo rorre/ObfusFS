@@ -1,4 +1,4 @@
-from obfusfs.main import main
+from obfuse.main import main
 
 if __name__ == "__main__":
     main()
