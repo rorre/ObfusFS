@@ -20,7 +20,7 @@ def main():
 
     usage = (
         """
-Userspace nullfs-alike: mirror the filesystem tree from some point on.
+Obfus-FS: A FUSE that obfuscates the location of all files inside a directory
 
 """
         + Fuse.fusage
@@ -29,10 +29,10 @@ Userspace nullfs-alike: mirror the filesystem tree from some point on.
     server = ObfusFS(usage=usage)
 
     server.parser.add_option(
-        "--root",
+        "--data",
         metavar="PATH",
         default="/",
-        help="mirror filesystem from under PATH [default: %default]",
+        help="data location for the filesystem [default: %default]",
     )
     server.parser.add_option(
         "--password",
