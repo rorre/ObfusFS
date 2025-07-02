@@ -34,7 +34,8 @@ class ObfusFS(Fuse):
 
     def __init__(self, *args, **kw):
         Fuse.__init__(self, *args, **kw)
-        self.root = ""
+        self.data = ""
+        self.password = ""
 
     # Directory related
     def readdir(self, path: str, offset: int):
@@ -183,7 +184,7 @@ class ObfusFS(Fuse):
         return os.statvfs(".")
 
     def fsinit(self):
-        os.chdir(self.root)
+        os.chdir(self.data)
 
     def main(self, *a, **kw):
         return Fuse.main(self, *a, **kw)
