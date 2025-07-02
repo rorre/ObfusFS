@@ -1,9 +1,10 @@
 import errno
 import os
+import stat
 import fuse
 from fuse import Fuse
 
-from obfusfs.path import Directory, PathManager
+from obfusfs.path import Directory, File, PathManager
 
 
 if not hasattr(fuse, "__version__"):
@@ -12,6 +13,20 @@ if not hasattr(fuse, "__version__"):
 fuse.fuse_python_api = (0, 2)
 
 fuse.feature_assert("stateful_files", "has_init")
+
+
+class DirectoryStat(fuse.Stat):
+    def __init__(self, directory: Directory):
+        self.st_mode = stat.S_IFDIR | 0o755
+        self.st_ino = 0  # dont care, FUSE will take care of it
+        self.st_dev = 0  # dont care, FUSE will take care of it
+        self.st_nlink = 2 + len(list(filter(lambda x: isinstance(x, Directory), directory.children)))
+        self.st_uid = directory.uid
+        self.st_gid = directory.gid
+        self.st_size = 4096
+        self.st_atime = directory.atime
+        self.st_mtime = directory.mtime
+        self.st_ctime = directory.ctime
 
 
 class ObfusFS(Fuse):
@@ -43,11 +58,12 @@ class ObfusFS(Fuse):
         except FileNotFoundError:
             return -errno.ENOENT
 
-        true_path = self.path_manager.get_true_filepath_or_create(path)
-        os.mknod("." + true_path, mode, dev)
+        p = self.path_manager.get_path(path)
+        os.mknod("." + p.true_path, mode, dev)
 
     def mkdir(self, path: str, mode: int):
-        self.path_manager.mkdir(path, mode)
+        ctx = self.GetContext()
+        self.path_manager.mkdir(path, ctx["uid"], ctx["gid"], mode)
 
     # File related
     def getattr(self, path: str):
@@ -57,14 +73,14 @@ class ObfusFS(Fuse):
             return -errno.ENOENT
 
         if isinstance(p, Directory):
-            return os.lstat(".")
+            return DirectoryStat(p)
 
-        true_path = self.path_manager.get_true_filepath(path)
+        true_path = self.path_manager.get_path(path).true_path
         return os.lstat("." + true_path)
 
     def unlink(self, path: str):
         try:
-            true_path = self.path_manager.get_true_filepath(path)
+            true_path = self.path_manager.get_path(path).true_path
             os.unlink("." + true_path)
             self.path_manager.unlink(path)
         except FileNotFoundError:
@@ -72,39 +88,45 @@ class ObfusFS(Fuse):
 
     def rename(self, path: str, path1: str):
         try:
-            true_path = self.path_manager.get_true_filepath(path)
-            true_path1 = self.path_manager.get_true_filepath_or_create(path1)
-            os.rename("." + true_path, "." + true_path1)
+            p = self.path_manager.get_path(path)
+            new_path = self.path_manager.get_path_or_create(path1)
+            if isinstance(p, File):
+                os.rename("." + p.true_path, "." + new_path.true_path)
+
             self.path_manager.unlink(path)
         except FileNotFoundError:
             return -errno.ENOENT
 
-    def chmod(self, path: str, mode):
+    def chmod(self, path: str, mode: int):
         try:
-            os.chmod("." + self.path_manager.get_true_filepath(path), mode)
+            p = self.path_manager.get_path(path)
+            if isinstance(p, Directory):
+                p.mode = mode
+                self.path_manager.save()
+            else:
+                os.chmod("." + self.path_manager.get_path(path).true_path, mode)
         except FileNotFoundError:
             return -errno.ENOENT
 
     def chown(self, path: str, uid: int, gid: int):
         try:
-            os.chown("." + self.path_manager.get_true_filepath(path), uid, gid)
+            p = self.path_manager.get_path(path)
+            if isinstance(p, Directory):
+                p.uid = uid
+                p.gid = gid
+                self.path_manager.save()
+            else:
+                os.chown("." + self.path_manager.get_path(path).true_path, uid, gid)
         except FileNotFoundError:
             return -errno.ENOENT
 
     def truncate(self, path: str, len: int):
         try:
-            f = open("." + self.path_manager.get_true_filepath(path), "a")
+            f = open("." + self.path_manager.get_path(path).true_path, "a")
             f.truncate(len)
             f.close()
         except FileNotFoundError:
             return -errno.ENOENT
-
-    # def utime(self, path: str, times: tuple[int, int] | tuple[float, float] | None):
-    #     os.utime("." + self.path_manager.get_true_filepath(path), times)
-
-    # def access(self, path: str, mode: int):
-    #     if not os.access("." + self.path_manager.get_true_filepath(path), mode):
-    #         return -errno.EACCES
 
     def read(self, path: str, size: int, offset: int) -> bytes | int:
         """Reads up to "size" bytes from file specified by "path"
@@ -123,7 +145,7 @@ class ObfusFS(Fuse):
             file. Defaults to 0.
         """
         try:
-            true_path = self.path_manager.get_true_filepath(path)
+            true_path = self.path_manager.get_path(path).true_path
             with open("." + true_path, "rb") as f:
                 f.seek(offset)
                 return f.read(size)
@@ -132,7 +154,7 @@ class ObfusFS(Fuse):
 
     def write(self, path: str, body: bytes, offset: int):
         try:
-            true_path = self.path_manager.get_true_filepath_or_create(path)
+            true_path = self.path_manager.get_path_or_create(path).true_path
             with open("." + true_path, "wb") as f:
                 f.seek(offset)
                 return f.write(body)

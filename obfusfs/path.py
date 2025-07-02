@@ -1,5 +1,6 @@
 from base64 import b64decode
 from dataclasses import dataclass, field
+from datetime import datetime
 import os
 from pathlib import Path
 import struct
@@ -62,20 +63,43 @@ class File:
             return self.name
         return os.path.join(self.parent.fullpath, self.name)
 
+    @property
+    def true_path(self):
+        if isinstance(self, Directory):
+            return "/"
+        return "/" + self.obfuscated_name
+
 
 @dataclass
 class Directory(File):
     children: dict[str, File] = field(default_factory=dict)
+    uid: int = 0
+    gid: int = 0
+    mode: int = 0o755
+    atime: int = 0
+    mtime: int = 0
+    ctime: int = 0
 
     def as_struct(self):
         file_endoded = super()._as_struct(type="D")
-        dir_info = struct.pack(">L", len(self.children))
+        dir_info = struct.pack(
+            ">IIILLLL",
+            self.uid,
+            self.gid,
+            self.mode,
+            self.atime,
+            self.mtime,
+            self.ctime,
+            len(self.children),
+        )
         all_children = b"".join(map(lambda x: x.as_struct(), self.children.values()))
         return file_endoded + dir_info + all_children
 
     def _load_dir_info(self, data: bytes):
-        total_children: int = struct.unpack_from(">L", data)[0]
-        data = data[4:]
+        self.uid, self.gid, self.mode, self.atime, self.mtime, self.ctime, total_children = struct.unpack_from(
+            ">IIILLLL", data
+        )
+        data = data[struct.calcsize(">IIILLLL") :]
 
         for _ in range(total_children):
             f, data = File.from_struct(data)
@@ -150,15 +174,11 @@ class PathManager:
 
         return p
 
-    def get_true_filepath(self, path: PathLike):
-        return "/" + self.get_path(path).obfuscated_name
-
-    def get_true_filepath_or_create(self, path: PathLike):
+    def get_path_or_create(self, path: PathLike):
         try:
-            return self.get_true_filepath(path)
+            return self.get_path(path)
         except FileNotFoundError:
-            new_file = self.create_file(path)
-            return self.get_true_filepath(new_file.fullpath)
+            return self.create_file(path)
 
     def get_directory(self, path: PathLike):
         p = self.get_path(path)
@@ -206,7 +226,7 @@ class PathManager:
         del dir.parent.children[dir.name]
         self.save()
 
-    def mkdir(self, path: PathLike, mode: int = 0o755):
+    def mkdir(self, path: PathLike, uid: int, gid: int, mode: int = 0o755):
         p = Path(path)
         if len(p.parts) < 2:
             raise ValueError("Invalid path")
@@ -218,5 +238,9 @@ class PathManager:
             raise FileExistsError(f"Directory {path} already exists")
 
         new_dir = Directory(p.name, p.name, parent_dir)
+        new_dir.atime = new_dir.mtime = new_dir.ctime = int(datetime.now().timestamp())
+        new_dir.uid = uid
+        new_dir.gid = gid
+        new_dir.mode = mode
         parent_dir.children[p.name] = new_dir
         self.save()
